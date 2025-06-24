@@ -91,7 +91,7 @@ const handleLogin = () => {
   console.log('Login submitted:', loginForm.value);
   // Implement actual login logic here
   authStore.login();
-  router.push('/');
+  router.push('/main');
 };
 
 const handleRegister = () => {
