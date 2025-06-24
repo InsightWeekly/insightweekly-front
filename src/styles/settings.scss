@@ -8,3 +8,33 @@
 // @use 'vuetify/settings' with (
 //   $color-pack: false
 // );
+
+body, .v-application {
+  font-family: 'Gaegu', cursive !important;
+}
+
+.sketch-card {
+  border: 2px solid #4A4A4A;
+  border-radius: 4px 6px 5px 4px/3px 4px 5px 6px;
+  background-color: #ffffff !important;
+  box-shadow: 2px 2px 0px 0px rgba(30, 30, 30, 0.3);
+  transition: all 0.2s ease-in-out;
+}
+
+.sketch-card:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px 0px rgba(30, 30, 30, 0.4);
+}
+
+.sketch-btn {
+  border: 2px solid #4A4A4A !important;
+  border-radius: 4px 6px 5px 4px/3px 4px 5px 6px !important;
+  box-shadow: 1px 1px 0px 0px rgba(30, 30, 30, 0.5) !important;
+  transition: all 0.2s ease-in-out !important;
+  text-transform: none !important;
+}
+
+.sketch-btn:hover {
+  transform: translate(0px, 0px) !important;
+  box-shadow: 2px 2px 0px 0px rgba(30, 30, 30, 0.6) !important;
+}

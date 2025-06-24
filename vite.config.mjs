@@ -39,11 +39,16 @@ export default defineConfig({
     AutoImport({
       imports: [
         'vue',
-        VueRouterAutoImports,
+        'vue-router',
+        'pinia',
         {
-          pinia: ['defineStore', 'storeToRefs'],
+          'chart.js': [
+            'Chart',
+            'registerables',
+          ],
         },
       ],
+      dts: 'auto-imports.d.ts',
       eslintrc: {
         enabled: true,
       },
