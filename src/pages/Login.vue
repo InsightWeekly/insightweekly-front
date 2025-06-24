@@ -14,9 +14,8 @@
             <v-window-item value="login">
               <v-form @submit.prevent="handleLogin">
                 <v-text-field
-                  v-model="loginForm.email"
-                  label="이메일"
-                  type="email"
+                  v-model="loginForm.username"
+                  label="사용자명"
                   variant="underlined"
                   required
                 ></v-text-field>
@@ -57,6 +56,14 @@
                   required
                   class="mt-4"
                 ></v-text-field>
+                <v-text-field
+                  v-model="registerForm.password_check"
+                  label="비밀번호 확인"
+                  type="password"
+                  variant="underlined"
+                  required
+                  class="mt-4"
+                ></v-text-field>
                 <v-btn type="submit" block size="x-large" class="sketch-btn mt-10">회원가입</v-btn>
               </v-form>
             </v-window-item>
@@ -77,7 +84,7 @@ const authStore = useAuthStore();
 const router = useRouter();
 
 const loginForm = ref({
-  email: '',
+  username: '',
   password: '',
 });
 
@@ -85,19 +92,25 @@ const registerForm = ref({
   username: '',
   email: '',
   password: '',
+  password_check: '',
 });
 
-const handleLogin = () => {
-  console.log('Login submitted:', loginForm.value);
-  // Implement actual login logic here
-  authStore.login();
-  router.push('/main');
+const handleLogin = async () => {
+  const success = await authStore.login(loginForm.value);
+  if (success) {
+    router.push('/');
+  } else {
+    alert('로그인에 실패했습니다.');
+  }
 };
 
-const handleRegister = () => {
-  console.log('Register submitted:', registerForm.value);
-  // Implement actual registration logic here
-  alert('회원가입 시도');
+const handleRegister = async () => {
+  const success = await authStore.signup(registerForm.value);
+  if (success) {
+    router.push('/select-category');
+  } else {
+    // Error alert is now handled in the auth store
+  }
 };
 </script>
 

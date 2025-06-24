@@ -16,64 +16,159 @@
       </v-col>
     </v-row>
 
-    <v-row v-if="searched" class="mt-8">
-      <v-col cols="12"
-        v-for="article in searchResults"
+    <v-row v-if="searched" align="center" class="mt-8">
+        <v-col>
+            <span v-if="totalResults > 0">총 {{ totalResults }}개의 검색 결과</span>
+        </v-col>
+        <v-col class="d-flex justify-end">
+             <v-btn-toggle
+                v-model="sortOrder"
+                mandatory
+                variant="outlined"
+                color="primary"
+                >
+                <v-btn value="1">최신순</v-btn>
+                <v-btn value="0">오래된 순</v-btn>
+            </v-btn-toggle>
+        </v-col>
+    </v-row>
+
+    <v-row v-if="loading" class="mt-8">
+      <v-col>
+        <div class="text-center">
+          <v-progress-circular indeterminate color="primary"></v-progress-circular>
+        </div>
+      </v-col>
+    </v-row>
+
+    <v-row v-else-if="searched" class="mt-4">
+      <v-col cols="12" v-if="!searchData || searchData.results.length === 0">
+        <v-alert type="info">"{{ lastQuery }}"에 대한 검색 결과가 없습니다.</v-alert>
+      </v-col>
+      <v-col
+        cols="12"
+        v-for="article in searchData.results"
         :key="article.id"
       >
-        <v-card class="sketch-card" flat>
-          <v-card-title class="text-h6 font-weight-bold">{{ article.title }}</v-card-title>
+        <v-card
+          class="sketch-card mb-4"
+          flat
+          :href="article.link"
+          target="_blank"
+        >
+          <v-card-title class="text-h6 font-weight-bold" style="padding-right: 56px;">{{ article.title }}</v-card-title>
           <v-card-subtitle>
-            {{ article.source }} | {{ new Date(article.date).toLocaleDateString() }} | {{ article.author }}
+            {{ article.news_company }} | {{ new Date(article.publication_date).toLocaleDateString() }}
           </v-card-subtitle>
           <v-card-text class="mt-2">
             {{ article.summary }}
           </v-card-text>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn class="sketch-btn" variant="text" @click="scrapArticle(article)">
-              <v-icon left :color="article.isScrapped ? 'yellow-darken-2' : ''">
-                {{ article.isScrapped ? 'mdi-bookmark' : 'mdi-bookmark-outline' }}
-              </v-icon>
-              스크랩
-            </v-btn>
-          </v-card-actions>
+           <v-btn
+            icon
+            variant="text"
+            class="sketch-btn scrap-btn"
+            @click.prevent="toggleScrap(article)"
+            style="position: absolute; top: 8px; right: 8px;"
+          >
+            <v-icon :color="isScrapped(article.id) ? 'yellow-darken-2' : ''">
+              {{ isScrapped(article.id) ? 'mdi-bookmark' : 'mdi-bookmark-outline' }}
+            </v-icon>
+          </v-btn>
         </v-card>
       </v-col>
+    </v-row>
+
+    <v-row v-if="searched && !loading && totalResults > 0">
+        <v-col>
+            <v-pagination
+                v-model="currentPage"
+                :length="pageCount"
+                rounded="circle"
+                class="my-8"
+            ></v-pagination>
+        </v-col>
     </v-row>
   </v-container>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed, watch } from 'vue';
+import { useApi } from '@/composables/useApi';
+import { useAuthStore } from '@/stores/auth';
 
 const searchQuery = ref('');
 const lastQuery = ref('');
 const searched = ref(false);
-const searchResults = ref([]);
+const sortOrder = ref('1');
+const currentPage = ref(1);
+const totalResults = ref(0);
+const itemsPerPage = 24;
 
-const allArticles = ref([
-  { id: 1, title: "AI, 신약 개발 속도 10년 앞당긴다", source: "A뉴스", author: "김기자", date: "2023-10-27T10:00:00Z", summary: "혁신적인 AI 알고리즘이 신약 후보물질 발굴 시간을 획기적으로 단축시켜 제약 산업에 큰 변화를 가져올 것으로 기대됩니다.", recommendation: 95, category: 'AI', isScrapped: false },
-  { id: 2, title: "자율주행차, 도심 물류 시스템 혁신", source: "B일보", author: "박기자", date: "2023-10-27T09:00:00Z", summary: "도심 내 라스트마일 배송에 자율주행 로봇이 투입되며 효율성이 극대화되고 있습니다. 관련 규제 완화가 시급합니다.", recommendation: 92, category: '자율주행', isScrapped: false },
-  { id: 3, title: "글로벌 공급망, 생성형 AI로 재편", source: "C경제", author: "이코노", date: "2023-10-26T15:00:00Z", summary: "생성형 AI가 수요 예측과 재고 관리를 자동화하여 공급망 리스크를 최소화하고, 기업의 비용 절감에 기여하고 있습니다.", recommendation: 88, category: '공급망', isScrapped: false },
-  { id: 4, title: "반도체 기술, AI 발전에 날개를 달다", source: "E테크", author: "오테크", date: "2023-10-25T18:00:00Z", summary: "차세대 반도체 개발이 AI 연산 능력을 기하급수적으로 향상시키고 있습니다.", recommendation: 99, category: 'AI', isScrapped: false },
-]);
+const scrappedNews = ref(new Set());
+const authStore = useAuthStore();
 
-const scrapArticle = (article) => {
-  article.isScrapped = !article.isScrapped;
+const { data: searchData, loading, fetchData: searchFetch } = useApi('search');
+const { data: scrapResult, fetchData: scrapFetchMethod } = useApi('scrap');
+const { data: initialScraps, fetchData: fetchInitialScraps } = useApi('scraps');
+
+const pageCount = computed(() => Math.ceil(totalResults.value / itemsPerPage));
+
+const executeSearch = async () => {
+  if (!lastQuery.value) return;
+  searched.value = true;
+  await searchFetch({ 
+      params: { 
+          keyword: lastQuery.value,
+          page: currentPage.value,
+          sort: sortOrder.value 
+        } 
+    });
+    if(searchData.value) {
+        totalResults.value = searchData.value.count;
+    }
 };
 
 const performSearch = () => {
-  searched.value = true;
-  lastQuery.value = searchQuery.value;
-  if (!searchQuery.value) {
-    searchResults.value = [];
-    return;
-  }
-  searchResults.value = allArticles.value.filter(
-    (article) =>
-      article.title.includes(searchQuery.value) ||
-      article.summary.includes(searchQuery.value)
-  );
+    if (!searchQuery.value) return;
+    currentPage.value = 1;
+    lastQuery.value = searchQuery.value;
+    executeSearch();
 };
+
+watch([currentPage, sortOrder], executeSearch);
+
+const isScrapped = (newsId) => {
+  return scrappedNews.value.has(newsId);
+};
+
+const toggleScrap = async (article) => {
+    if (!authStore.isLoggedIn) {
+        alert('로그인이 필요합니다.');
+        return;
+    }
+  await scrapFetchMethod({
+    method: 'put',
+    params: { news: article.id }
+  });
+
+  if (scrapResult.value) {
+    if (scrapResult.value.active) {
+      scrappedNews.value.add(article.id);
+    } else {
+      scrappedNews.value.delete(article.id);
+    }
+  }
+};
+
+// Initial load for scraps if logged in
+watch(() => authStore.isLoggedIn, (loggedIn) => {
+    if (loggedIn) {
+        fetchInitialScraps().then(() => {
+            if (initialScraps.value && initialScraps.value.results) {
+                const scrappedIds = initialScraps.value.results.map(n => n.id);
+                scrappedNews.value = new Set(scrappedIds);
+            }
+        });
+    }
+}, { immediate: true });
 </script> 
