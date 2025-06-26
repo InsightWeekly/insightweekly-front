@@ -1,10 +1,15 @@
 .DS_Store
 node_modules
 /dist
+/dist-ssr
 
-# local env files
-.env.local
-.env.*.local
+# Environments
+.env
+.env*.local
+.env.*
+
+# dependencies
+/node_modules
 
 # Log files
 npm-debug.log*
